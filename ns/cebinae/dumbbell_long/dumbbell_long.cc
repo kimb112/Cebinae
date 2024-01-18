@@ -47,21 +47,49 @@ TraceRtt (int sourceidtag, Time old_rtt, Time new_rtt) {
 // static void
 // RxDrop (Ptr<const Packet> p)
 // {
+//   std::cout << "RxDrop at " << Simulator::Now().GetNanoSeconds();
 //   NS_LOG_DEBUG ("RxDrop at " << Simulator::Now ().GetNanoSeconds());
+// }
+
+// static void
+// RxDrop(Ptr<const Packet> packet) {
+//     /* 
+//      * Need to copy packet since headers need to be removed
+//      * to be inspected. Alternatively, remove the headers,
+//      * and add them back.
+//      */
+//     Ptr<Packet> copy = packet->Copy();
+
+//     // Headers must be removed in the order they're present.
+//     PppHeader pppHeader;
+//     copy->RemoveHeader(pppHeader);
+//     Ipv4Header ipHeader;
+//     copy->RemoveHeader(ipHeader);
+//     TcpHeader tcpHeader;
+//     copy->RemoveHeader(tcpHeader);
+
+//     std::cout << "Source IP: ";
+//     ipHeader.GetSource().Print(std::cout);
+//     std::cout << std::endl;
+//     std::cout << "Source Port: " << tcpHeader.GetSourcePort() << std::endl;
+//     std::cout << "Destination IP: ";
+//     ipHeader.GetDestination().Print(std::cout);
+//     std::cout << std::endl;
+//     std::cout << "Destination Port: " << tcpHeader.GetDestinationPort() << std::endl;
 // }
 
 // void CheckQueueSize (Ptr<QueueDisc> qd)
 // {
 //   uint32_t qsize = qd->GetCurrentSize ().GetValue ();
 //   Simulator::Schedule (Seconds (0.2), &CheckQueueSize, qd);
-//   std::ofstream q (dir + "/queueSize.dat", std::ios::out | std::ios::app);
+//   std::ofstream q (result_dir + "/queueSize.dat", std::ios::out | std::ios::app);
 //   q << Simulator::Now ().GetSeconds () << " " << qsize << std::endl;
 //   q.close ();
 // }
-//   tch.Uninstall (routers.Get (0)->GetDevice (1));
-//   QueueDiscContainer qd;
-//   qd = tch.Install (routers.Get (0)->GetDevice (1));
-//   Simulator::ScheduleNow (&CheckQueueSize, qd.Get (0));
+  // tch.Uninstall (routers.Get (0)->GetDevice (1));
+  // QueueDiscContainer qd;
+  // qd = tch.Install (routers.Get (0)->GetDevice (1));
+  // Simulator::ScheduleNow (&CheckQueueSize, qd.Get (0));
 
 std::vector<double> avg_tpt_bottleneck;  // Avg over whole sim period
 std::vector<double> avg_tpt_app;  // This is actually goodput
@@ -71,7 +99,17 @@ std::vector<double> avg_tpt_app;  // This is actually goodput
 int num_tracing_periods = 0;
 double sim_seconds = 1;
 double app_seconds_start = 0.1;
-double app_seconds_end = 10;
+double app_seconds_start0 = 0.1;
+double app_seconds_start1 = 0.1;
+double app_seconds_start2 = 0.1;
+double app_seconds_start3 = 0.1;
+// double app_seconds_start4 = 0.1;
+double app_seconds_end = 1;
+double app_seconds_end0 = 1;
+double app_seconds_end1 = 1;
+double app_seconds_end2 = 1;
+double app_seconds_end3 = 1;
+// double app_seconds_end4 = 1;
 
 // Triggered when a packet has been completely transmitted over the channel
 std::unordered_map<std::uint32_t, std::uint64_t> mysourceidtag2pktcount;
@@ -117,6 +155,25 @@ RxWithAddressesPacketSink (Ptr<const Packet> p, const Address& from, const Addre
 Time prevTime = Seconds (0);
 std::string result_dir;
 uint32_t tracing_period_us = 0;
+
+// void CheckQueueSize (Ptr<QueueDisc> qd)
+// {
+//   uint32_t qsize = qd->GetCurrentSize ().GetValue ();
+//   Simulator::Schedule (Seconds (0.01), &CheckQueueSize, qd);
+//   std::ofstream q (result_dir + "/queueSize.dat", std::ios::out | std::ios::app);
+//   q << Simulator::Now ().GetSeconds () << " " << qsize << std::endl;
+//   q.close ();
+// }
+
+// void CheckQueueSize (Ptr<QueueDisc> qd)
+// {
+//   uint32_t qsize = qd->GetCurrentSize ().GetValue ();
+//   Simulator::Schedule (Seconds (0.2), &CheckQueueSize, qd);
+//   std::ofstream q (result_dir + "/queueSize.dat", std::ios::out | std::ios::app);
+//   q << Simulator::Now ().GetSeconds () << " " << qsize << std::endl;
+//   q.close ();
+// }
+
 static void
 TraceThroughputJFI(std::string bottleneck_fn, std::string app_fn, std::string jfi_fn)
 {
@@ -135,13 +192,16 @@ TraceThroughputJFI(std::string bottleneck_fn, std::string app_fn, std::string jf
 
   std::ofstream app_ofs (result_dir + "/" + app_fn, std::ios::out | std::ios::app);
   total = 0.0;
+  // std::cout << "size: " << packetsink_mysourceidtag2bytecount.size() << std::endl;
   for (uint32_t i = 0; i < packetsink_mysourceidtag2bytecount.size(); i++) {
     // bps
     app_ofs << std::fixed << std::setprecision (3) << 8.0*packetsink_mysourceidtag2bytecount[i]/(curTime.GetSeconds () - prevTime.GetSeconds ()) << " ";
     avg_tpt_app[i] += (8.0*packetsink_mysourceidtag2bytecount[i]/(sim_seconds-app_seconds_start));
     total += 8.0*packetsink_mysourceidtag2bytecount[i]/(curTime.GetSeconds () - prevTime.GetSeconds ());
+
   }
   app_ofs << std::fixed << std::setprecision (3) << total << std::endl;
+
 
   // https://en.wikipedia.org/wiki/Fairness_measure
   std::ofstream jfi_ofs (result_dir + "/" + jfi_fn, std::ios::out | std::ios::app);
@@ -193,7 +253,7 @@ main (int argc, char *argv[])
   CommandLine cmd (__FILE__);
 
   // Non-configurable or derived params
-  uint32_t num_leaf = 2;
+  uint32_t num_leaf = 3;
   bool sack = true;  
   std::string recovery = "ns3::TcpClassicRecovery";
   // Naming the output directory using local system time
@@ -217,7 +277,7 @@ main (int argc, char *argv[])
   bool enable_stdout = 1; 
   uint32_t seed = 1;  // Fixed
   uint32_t run = 1;  // Varry across replications
-  sim_seconds = 10;
+  sim_seconds = 1;
   uint32_t delackcount = 1;
   std::string switch_netdev_size = "100p";
   std::string server_netdev_size = "100p";  
@@ -293,8 +353,18 @@ main (int argc, char *argv[])
   cmd.AddValue ("printprogress", "Enable verbose rmterminal print", printprogress);
   cmd.AddValue ("skip_run", "Skip running if result_dir/digest exists", skip_run);      
   cmd.AddValue ("sim_seconds", "Simulation time [s]", sim_seconds);
-  cmd.AddValue ("app_seconds_start", "Application start time [s]", app_seconds_start);  
+  cmd.AddValue ("app_seconds_start", "Application start time [s]", app_seconds_start); 
+  cmd.AddValue ("app_seconds_start0", "Application start time [s]", app_seconds_start0); 
+  cmd.AddValue ("app_seconds_start1", "Application start time [s]", app_seconds_start1); 
+  cmd.AddValue ("app_seconds_start2", "Application start time [s]", app_seconds_start2); 
+  cmd.AddValue ("app_seconds_start3", "Application start time [s]", app_seconds_start3);  
+  // cmd.AddValue ("app_seconds_start4", "Application start time [s]", app_seconds_start4); 
   cmd.AddValue ("app_seconds_end", "Application stop time [s]", app_seconds_end);
+  cmd.AddValue ("app_seconds_end0", "Application stop time [s]", app_seconds_end0);
+  cmd.AddValue ("app_seconds_end1", "Application stop time [s]", app_seconds_end1);
+  cmd.AddValue ("app_seconds_end2", "Application stop time [s]", app_seconds_end2);
+  cmd.AddValue ("app_seconds_end3", "Application stop time [s]", app_seconds_end3);
+  // cmd.AddValue ("app_seconds_end4", "Application stop time [s]", app_seconds_end4);
   cmd.AddValue ("tracing_period_us", "Tracing period [us]", tracing_period_us);
   cmd.AddValue ("progress_interval_ms", "Prograss interval [ms]", progress_interval_ms);    
   cmd.AddValue ("delackcount", "TcpSocket::DelAckCount", delackcount);  
@@ -419,6 +489,7 @@ main (int argc, char *argv[])
   }
 
   num_leaf = 0;
+  // std::cout << "num_leaf: " << num_leaf << std::endl;
   switch(num_cca) {
     case 1:
       num_leaf = num_cca0;
@@ -467,7 +538,17 @@ main (int argc, char *argv[])
             << "progress_interval_ms: " << progress_interval_ms << "\n"         
             << "sim_seconds: " << sim_seconds << "\n"
             << "app_seconds_start: " << app_seconds_start << "\n"
+            << "app_seconds_start0: " << app_seconds_start0 << "\n"
+            << "app_seconds_start1: " << app_seconds_start1 << "\n"
+            << "app_seconds_start2: " << app_seconds_start2 << "\n"
+            << "app_seconds_start3: " << app_seconds_start3 << "\n"
+            // << "app_seconds_start4: " << app_seconds_start4 << "\n"
             << "app_seconds_end: " << app_seconds_end << "\n"
+            << "app_seconds_end0: " << app_seconds_end0 << "\n"
+            << "app_seconds_end1: " << app_seconds_end1 << "\n"
+            << "app_seconds_end2: " << app_seconds_end2 << "\n"
+            << "app_seconds_end3: " << app_seconds_end3 << "\n"
+            // << "app_seconds_end4: " << app_seconds_end4 << "\n"
             << "transport_prot0: " << transport_prot0 << "\n"
             << "transport_prot1: " << transport_prot1 << "\n"
             << "transport_prot2: " << transport_prot2 << "\n"
@@ -863,6 +944,149 @@ main (int argc, char *argv[])
     ipv4_right.NewNetwork ();
   }  
 
+///////////////////////////////////// generate traffic /////
+  // // Create nodes and install internet stack
+  //   NodeContainer nodesForAdditionalTraffic;
+  //   nodesForAdditionalTraffic.Create(2);
+
+  //   InternetStackHelper stackForAdditionalTraffic;
+  //   stackForAdditionalTraffic.Install(nodesForAdditionalTraffic);
+
+  //   // Create point-to-point link
+  //   PointToPointHelper pointToPointForAdditionalTrafficLeft;
+  //   pointToPointForAdditionalTrafficLeft.SetDeviceAttribute("DataRate", StringValue("1000Mbps"));
+  //   pointToPointForAdditionalTrafficLeft.SetChannelAttribute("Delay", StringValue("2ms"));
+
+  //   PointToPointHelper pointToPointForAdditionalTrafficRight;
+  //   pointToPointForAdditionalTrafficRight.SetDeviceAttribute("DataRate", StringValue("1000Mbps"));
+  //   pointToPointForAdditionalTrafficRight.SetChannelAttribute("Delay", StringValue("2ms"));
+
+  //   // NetDeviceContainer devicesForAdditionalTraffic;
+  //   // devicesForAdditionalTraffic = pointToPointForAdditionalTraffic.Install(nodesForAdditionalTraffic);
+
+
+  //   NetDeviceContainer deviceForAdditionalTrafficLeft;
+  //   NetDeviceContainer deviceForAdditionalTrafficRight;  
+
+  //   deviceForAdditionalTrafficLeft = pointToPointForAdditionalTrafficLeft.Install(router.Get (0),
+  //                           nodesForAdditionalTraffic.Get (0));
+  //   deviceForAdditionalTrafficRight = pointToPointForAdditionalTrafficRight.Install(router.Get (1),
+  //                           nodesForAdditionalTraffic.Get (1)); 
+  //   // connect leaf 1 to router 1 (pointtopointhelper.install(left))
+  //   // connect leaf 2 to router 2
+
+  //   // Assign IP addresses to nodes
+  //   Ipv4AddressHelper addressForAdditionalTraffic;
+
+  //   addressForAdditionalTraffic.SetBase("3.3.3.0", "255.255.255.0");
+  //   Ipv4InterfaceContainer interfacesForAdditionalTrafficLeft = addressForAdditionalTraffic.Assign(deviceForAdditionalTrafficLeft);
+
+  //   addressForAdditionalTraffic.SetBase("300.3.3.0", "255.255.255.0");
+  //   Ipv4InterfaceContainer interfacesForAdditionalTrafficRight = addressForAdditionalTraffic.Assign(deviceForAdditionalTrafficRight);
+
+  //   // Create On/Off application
+  //   OnOffHelper onoffLeft("ns3::UdpSocketFactory", Address(InetSocketAddress(interfacesForAdditionalTrafficLeft.GetAddress(1), 9)));
+  //   onoffLeft.SetConstantRate(DataRate("51200kb/s"));
+  //   onoffLeft.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
+  //   onoffLeft.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=2]"));
+
+  //   // OnOffHelper onoffRight("ns3::UdpSocketFactory", Address(InetSocketAddress(interfacesForAdditionalTrafficLeft.GetAddress(1), 9)));
+  //   // onoffRight.SetConstantRate(DataRate("51200kb/s"));
+  //   // onoffRight.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
+  //   // onoffRight.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=2]"));
+
+  //   ApplicationContainer appsLeft = onoffLeft.Install(nodesForAdditionalTraffic.Get(0));
+  //   appsLeft.Start(Seconds(1.0));
+  //   appsLeft.Stop(Seconds(20.0));
+
+  //   // Create a PacketSinkApplication and install it on node N3
+  // PacketSinkHelper dest ("ns3::UdpSocketFactory",
+  //                        InetSocketAddress (interfacesForAdditionalTrafficLeft.GetAddress (1), 6));
+  // ApplicationContainer sinkApps = dest.Install(nodesForAdditionalTraffic.Get (1));
+  // sinkApps.Start (Seconds (0.0));
+  // sinkApps.Stop (Seconds (app_seconds_end0));
+
+    // ApplicationContainer appsRight = onoffRight.Install(nodesForAdditionalTraffic.Get(0));
+    // appsRight.Start(Seconds(1.0));
+    // appsRight.Stop(Seconds(20.0));
+
+
+    //------------------------------------------------------------//
+
+    uint16_t sinkPort = 8000;
+    uint32_t packetSize = 1500; // bytes
+    std::string dataRate("51200kb/s");
+
+    NS_LOG_INFO("Create Node");
+    NodeContainer nodes;
+    nodes.Create(2);
+
+    PointToPointHelper pointToPointAccess1;
+    pointToPointAccess1.SetDeviceAttribute ("DataRate", StringValue ("1000Mbps"));
+    pointToPointAccess1.SetChannelAttribute ("Delay", StringValue ("2ms"));
+
+    PointToPointHelper pointToPointAccess2;
+    pointToPointAccess2.SetDeviceAttribute ("DataRate", StringValue ("1000Mbps"));
+    pointToPointAccess2.SetChannelAttribute ("Delay", StringValue ("2ms"));
+
+    NS_LOG_INFO("Create Device");
+    // NetDeviceContainer devices = pointToPointAccess1.Install(node0, router0);
+    NetDeviceContainer devices_left = pointToPointAccess1.Install(nodes.Get(0), router.Get(0));
+    NetDeviceContainer devices_right = pointToPointAccess2.Install(router.Get(1), nodes.Get(1));
+
+    NetDeviceContainer left_devices_container;
+    NetDeviceContainer right_devices_container;
+    NetDeviceContainer left_router_container;
+    NetDeviceContainer right_router_container;
+
+    left_devices_container.Add(devices_left.Get(0));
+    left_devices_container.Add(devices_left.Get(1));
+    right_devices_container.Add(devices_right.Get(0));
+    right_devices_container.Add(devices_right.Get(1));
+    
+    NS_LOG_INFO("Add Internet Stack");
+    InternetStackHelper internetStackHelper;
+    internetStackHelper.SetIpv4StackInstall(true);
+    internetStackHelper.Install(nodes);
+    // internetStackHelper.Install(router.Get(0));
+    // internetStackHelper.Install(router.Get(1));
+
+    NS_LOG_INFO("Create IPv4 Interface");
+    Ipv4AddressHelper addresses_left;
+    addresses_left.SetBase("10.0.0.0", "255.255.255.0");
+    Ipv4InterfaceContainer interfaces_left = addresses_left.Assign(left_devices_container);
+
+    Ipv4AddressHelper addresses_right;
+    addresses_right.SetBase("20.0.0.0", "255.255.255.0");
+    Ipv4InterfaceContainer interfaces_right = addresses_right.Assign(right_devices_container);
+
+    Ptr<Node> clientNode = nodes.Get(0);
+    Ipv4Address serverIp = interfaces_right.GetAddress(1);
+    Ptr<Node> serverNode = nodes.Get(1);
+
+    // server
+    Address sinkLocalAddress(InetSocketAddress(serverIp, sinkPort));
+
+    PacketSinkHelper sinkHelper("ns3::UdpSocketFactory", sinkLocalAddress);
+    ApplicationContainer sinkApp = sinkHelper.Install(serverNode);
+    sinkApp.Start(Seconds(app_seconds_start0));
+    sinkApp.Stop(Seconds(app_seconds_end0));
+    // fd.EnablePcap("fd2fd-onoff-server", serverDevice);
+
+    // client
+    AddressValue serverAddress(InetSocketAddress(serverIp, sinkPort));
+    OnOffHelper onoff("ns3::UdpSocketFactory", Address());
+    onoff.SetAttribute("Remote", serverAddress);
+    onoff.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
+    onoff.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
+    onoff.SetAttribute("DataRate", DataRateValue(dataRate));
+    onoff.SetAttribute("PacketSize", UintegerValue(packetSize));
+    ApplicationContainer clientApps = onoff.Install(clientNode);
+    clientApps.Start(Seconds(app_seconds_start0));
+    clientApps.Stop(Seconds(app_seconds_end0));
+    // fd.EnablePcap("fd2fd-onoff-client", clientDevice);
+    pointToPointAccess1.EnablePcapAll("ptp", false);
+
   NS_LOG_DEBUG("================== Generate application ==================");
 
   // We want to look at changes in the ns-3 TCP congestion window:
@@ -895,14 +1119,29 @@ main (int argc, char *argv[])
     Ptr<MySource> app = CreateObject<MySource> ();
     if (i < num_cca0) {
       app->Setup (ns3TcpSocket, sinkAddress, app_packet_size, DataRate (app_bw0), i, false);
+      leftleaf.Get (i)->AddApplication (app);
+      app->SetStartTime (Seconds (app_seconds_start0));
+      app->SetStopTime (Seconds (app_seconds_end0));
     } else if (i < (num_cca0+num_cca1)) {
-      app->Setup (ns3TcpSocket, sinkAddress, app_packet_size, DataRate (app_bw1), i, false);       
+      app->Setup (ns3TcpSocket, sinkAddress, app_packet_size, DataRate (app_bw1), i, false);
+      leftleaf.Get (i)->AddApplication (app);
+      app->SetStartTime (Seconds (app_seconds_start1));
+      app->SetStopTime (Seconds (app_seconds_end1));       
     } else if (i < (num_cca0+num_cca1+num_cca2)) {
-      app->Setup (ns3TcpSocket, sinkAddress, app_packet_size, DataRate (app_bw2), i, false);    
+      app->Setup (ns3TcpSocket, sinkAddress, app_packet_size, DataRate (app_bw2), i, false);
+      leftleaf.Get (i)->AddApplication (app);
+      app->SetStartTime (Seconds (app_seconds_start2));
+      app->SetStopTime (Seconds (app_seconds_end2));    
     } else if (i < (num_cca0+num_cca1+num_cca2+num_cca3)) {
-      app->Setup (ns3TcpSocket, sinkAddress, app_packet_size, DataRate (app_bw3), i, false);      
+      app->Setup (ns3TcpSocket, sinkAddress, app_packet_size, DataRate (app_bw3), i, false); 
+      leftleaf.Get (i)->AddApplication (app);
+      app->SetStartTime (Seconds (app_seconds_start3));
+      app->SetStopTime (Seconds (app_seconds_end3));     
     } else if (i < (num_cca0+num_cca1+num_cca2+num_cca3+num_cca4)) {
-      app->Setup (ns3TcpSocket, sinkAddress, app_packet_size, DataRate (app_bw4), i, false);     
+      app->Setup (ns3TcpSocket, sinkAddress, app_packet_size, DataRate (app_bw4), i, false);
+      // leftleaf.Get (i)->AddApplication (app);
+      // app->SetStartTime (Seconds (app_seconds_start4));
+      // app->SetStopTime (Seconds (app_seconds_end4));     
     } else if (i < (num_cca0+num_cca1+num_cca2+num_cca3+num_cca4+num_cca5)) {
       app->Setup (ns3TcpSocket, sinkAddress, app_packet_size, DataRate (app_bw5), i, false);       
     } else if (i < (num_cca0+num_cca1+num_cca2+num_cca3+num_cca4+num_cca5+num_cca6)) {
@@ -912,11 +1151,11 @@ main (int argc, char *argv[])
     } else if (i < (num_cca0+num_cca1+num_cca2+num_cca3+num_cca4+num_cca5+num_cca6+num_cca7+num_cca8)) {
       app->Setup (ns3TcpSocket, sinkAddress, app_packet_size, DataRate (app_bw8), i, false);      
     }                                    
-    leftleaf.Get (i)->AddApplication (app);
-    app->SetStartTime (Seconds (app_seconds_start));
-    app->SetStopTime (Seconds (app_seconds_end));
+    // leftleaf.Get (i)->AddApplication (app);
+    // app->SetStartTime (Seconds (app_seconds_start));
+    // app->SetStopTime (Seconds (app_seconds_end));
     // if (i == 0) {
-    //   rightleaf_devices.Get(i)->TraceConnectWithoutContext ("PhyRxDrop", MakeCallback (&RxDrop));
+      // rightleaf_devices.Get(i)->TraceConnectWithoutContext ("PhyRxDrop", MakeCallback (&RxDrop));
     // }
     sources[i] = app;
   }
@@ -938,6 +1177,8 @@ main (int argc, char *argv[])
   num_tracing_periods = sim_seconds/(tracing_period_us/pow(10, 6));
   oss << "num_tracing_periods: " << num_tracing_periods << "\n";
 
+  std::cout << "num_leaf: " << num_leaf << std::endl;
+
   Simulator::Schedule(MicroSeconds(0+tracing_period_us), &TraceThroughputJFI, 
                       "bottleneck_tpt_"+std::to_string(tracing_period_us)+".dat",
                       "app_tpt_"+std::to_string(tracing_period_us)+".dat",
@@ -948,6 +1189,35 @@ main (int argc, char *argv[])
   if (printprogress) {
     Simulator::Schedule (MilliSeconds(progress_interval_ms), &PrintProgress, MilliSeconds(progress_interval_ms));
   }
+
+
+  bool tracing = true;
+  if (tracing) {
+      AsciiTraceHelper ascii;
+    if (queuedisc_type.compare("FifoQueueDisc") == 0) {
+      // p2p_bottleneck.EnableAsciiAll(ascii.CreateFileStream("FIFO.tr"));
+      p2p_bottleneck.EnablePcapAll ("FIFO", false);
+      std::cout << "pcap file fifo" << std::endl;
+    }
+    if (queuedisc_type.compare("CebinaeQueueDisc") == 0) {
+      // p2p_bottleneck.EnableAsciiAll(ascii.CreateFileStream("Cebinae.tr"));
+      p2p_bottleneck.EnablePcapAll ("Cebinae", false);
+    }
+    
+    
+  }
+
+  // tch_switch.Uninstall (router_devices.Get (0));
+  // QueueDiscContainer qd;
+  // qd = tch_switch.Install (router_devices.Get (0));
+  // Simulator::ScheduleNow (&CheckQueueSize, qd.Get (0));
+
+  // tch_switch.Uninstall (router_devices.Get (0));
+  // QueueDiscContainer qd;
+  // qd = tch_switch.Install (router_devices.Get (0));
+  // Simulator::ScheduleNow (&CheckQueueSize, qd.Get (0));
+
+  
 
   NS_LOG_DEBUG("================== Run ==================");
 
@@ -1020,10 +1290,18 @@ main (int argc, char *argv[])
     oss << "# of RTT samples for source " << sourceid << ": " << num_rtt_samples << "\n";
     oss << "Avg. RTT for source " << sourceid << ": " << avg_rtt_ns << "ns\n";    
     if (logtcp) {
-      std::ofstream rtt_ofs (result_dir + "/rtt_"+std::to_string(sourceid)+".dat", std::ios::out | std::ios::app);
-      for (int i = 0; i < num_rtt_samples; i++) {
-        rtt_ofs << sourceidtag2rttlog[sourceid][i] << "\n";
-      }
+      if (queuedisc_type.compare("FifoQueueDisc") == 0) {
+        std::ofstream rtt_ofs (result_dir + "/FIFO-rtt_"+std::to_string(sourceid)+".dat", std::ios::out | std::ios::app);
+        for (int i = 0; i < num_rtt_samples; i++) {
+          rtt_ofs << sourceidtag2rttlog[sourceid][i] << "\n";
+        }
+        }
+      if (queuedisc_type.compare("CebinaeQueueDisc") == 0) {
+        std::ofstream rtt_ofs (result_dir + "/Cebinae-rtt_"+std::to_string(sourceid)+".dat", std::ios::out | std::ios::app);
+        for (int i = 0; i < num_rtt_samples; i++) {
+          rtt_ofs << sourceidtag2rttlog[sourceid][i] << "\n";
+        }
+        }
       std::ofstream cwnd_ofs (result_dir + "/cwnd_"+std::to_string(sourceid)+".dat", std::ios::out | std::ios::app);
       int num_cwnd_samples = sourceidtag2cwndlog[sourceid].size();
       for (int i = 0; i < num_cwnd_samples; i++) {
@@ -1067,4 +1345,3 @@ main (int argc, char *argv[])
 
   return 0;
 }
-

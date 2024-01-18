@@ -79,9 +79,8 @@ public:
    *
    * \param tcb internal congestion state
    */
-  virtual void Init (Ptr<TcpSocketState> tcb)
+  virtual void Init ([[maybe_unused]] Ptr<TcpSocketState> tcb)
     {
-      NS_UNUSED (tcb);
     }
 
   /**
@@ -238,9 +237,41 @@ public:
                                 uint32_t bytesInFlight);
   virtual Ptr<TcpCongestionOps> Fork ();
 
+  void CongestionStateSet(Ptr<TcpSocketState> tcb,
+                            const TcpSocketState::TcpCongState_t newState) override;
+
+  /**
+   * \brief Store RTTs needed to implement fairness tax
+   *
+   * The function remembers ...
+   *
+   * \param tcb internal congestion state
+   * \param segmentsAcked count of segments ACKed
+   * \param rtt last RTT
+   *
+   */
+  virtual void PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked,
+                          const Time& rtt);
+
 protected:
   virtual uint32_t SlowStart (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked);
   virtual void CongestionAvoidance (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked);
+
+/** Private variables for implementing fairness tax */
+private:
+#define NUMBER_OF_SUB_SAMPLES 4
+#define TIMESTAMPING_ERROR_EPSILON 100000 // 100 microsecond
+  uint32_t congestionTimescale; // 100 ms
+  uint32_t samplingTimescale; // congestionTimescale/NUMBER_OF_SUB_SAMPLES
+  bool congestionEncounteredRecently;
+  Time rttCircularQ[NUMBER_OF_SUB_SAMPLES];
+  Time rttLogTime[NUMBER_OF_SUB_SAMPLES];
+  Time zeroTime; /* Representing a zero value of time, to avoid creating the object again and again */
+  uint32_t qIndex;
+  double taxRate; // 10 (percent)
+  Time recentRtt;
+  uint32_t congCount;
+  uint32_t congNotCount;
 };
 
 } // namespace ns3

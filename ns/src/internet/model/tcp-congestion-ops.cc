@@ -18,6 +18,10 @@
  */
 #include "tcp-congestion-ops.h"
 #include "ns3/log.h"
+#include "ns3/simulator.h"
+#include <iostream>
+#include <fstream>
+
 
 namespace ns3 {
 
@@ -82,12 +86,10 @@ TcpCongestionOps::HasCongControl () const
 
 void
 TcpCongestionOps::CongControl (Ptr<TcpSocketState> tcb,
-                               const TcpRateOps::TcpRateConnection &rc,
-                               const TcpRateOps::TcpRateSample &rs)
+                               [[maybe_unused]] const TcpRateOps::TcpRateConnection &rc,
+                               [[maybe_unused]] const TcpRateOps::TcpRateSample &rs)
 {
   NS_LOG_FUNCTION (this << tcb);
-  NS_UNUSED (rc);
-  NS_UNUSED (rs);
 }
 
 // RENO
@@ -105,20 +107,49 @@ TcpNewReno::GetTypeId (void)
   return tid;
 }
 
-TcpNewReno::TcpNewReno (void) : TcpCongestionOps ()
+TcpNewReno::TcpNewReno (void) 
+  : TcpCongestionOps (),
+    congestionTimescale (100000000), /* 100 ms */
+    samplingTimescale (25000000), /* 25 ms */
+    congestionEncounteredRecently (false),
+    qIndex (0),
+    taxRate (0.01),
+    recentRtt (0),
+    congCount (0),
+    congNotCount(0) 
 {
   NS_LOG_FUNCTION (this);
+  zeroTime = Time();
+
+  for (int i = 0; i < NUMBER_OF_SUB_SAMPLES; i++) {
+    rttCircularQ[i] = zeroTime;
+    rttLogTime[i] = zeroTime;
+  }
 }
 
 TcpNewReno::TcpNewReno (const TcpNewReno& sock)
-  : TcpCongestionOps (sock)
+  : TcpCongestionOps (sock),
+    congestionTimescale (100000000), /* 100 ms */
+    samplingTimescale (25000000), /* 25 ms */
+    congestionEncounteredRecently (sock.congestionEncounteredRecently),
+    qIndex (sock.qIndex),
+    taxRate (0.01),
+    recentRtt (sock.recentRtt),
+    congCount (sock.congCount),
+    congNotCount(sock.congNotCount) 
 {
   NS_LOG_FUNCTION (this);
+
+  for (int i = 0; i < NUMBER_OF_SUB_SAMPLES; i++) {
+    rttCircularQ[i] = zeroTime;
+    rttLogTime[i] = zeroTime;
+  }
 }
 
 TcpNewReno::~TcpNewReno (void)
 {
 }
+
 
 /**
  * \brief Tcp NewReno slow start algorithm
@@ -201,6 +232,87 @@ TcpNewReno::CongestionAvoidance (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked
     }
 }
 
+void
+TcpNewReno::CongestionStateSet (Ptr<TcpSocketState> tcb,
+                              const TcpSocketState::TcpCongState_t newState)
+{
+  Time now;
+
+  NS_LOG_FUNCTION (this << tcb << newState);
+  if ((newState == TcpSocketState::CA_RECOVERY) || (newState == TcpSocketState::CA_LOSS))
+    {
+   	now = Simulator::Now ();
+  	// std::cout << (now).GetSeconds() << " " << tcb->m_lastAckedSeq << " packet lost" << std::endl;
+    }
+}
+
+/**
+ * For implementing fairness tax, implement tracking of whether 
+ * congestion was encountered recently by the flow.
+ */
+void
+TcpNewReno::PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked,
+                     const Time& rtt)
+{
+  NS_LOG_FUNCTION (this << tcb << segmentsAcked << rtt);
+
+  Time now;
+  Time earliestRTTtimestamp;
+  Time earliestRTT;
+
+
+
+  if (rtt.IsZero ())
+    {
+      return;
+    }
+
+  // Do all of the following for implementing fairness tax
+  now = Simulator::Now ();
+  // std::cout << "FAIRNESS TAX: time difference: " << (now - rttLogTime[qIndex]).GetInteger() << std::endl;
+
+  // std::cout << "Time: " << rttLogTime[qIndex].GetInteger() << " RTT: " << rtt.GetInteger() << std::endl;
+  
+  // std::cout << now.GetSeconds() << " " << rtt.GetMilliSeconds() << std::endl;
+
+
+  if ((now - rttLogTime[qIndex]).GetInteger() > samplingTimescale) { // in nanoseconds
+    qIndex = (qIndex+1)%NUMBER_OF_SUB_SAMPLES;
+    rttCircularQ[qIndex] = rtt;
+    rttLogTime[qIndex] = now;
+
+  }
+  
+  earliestRTTtimestamp = now;
+  earliestRTT = rtt;
+  for (int i = 0; i < NUMBER_OF_SUB_SAMPLES; i++) {
+    if ((now - rttLogTime[i]).GetInteger() > congestionTimescale) { // in nanoseconds
+      rttCircularQ[i] = zeroTime;
+      rttLogTime[i] = zeroTime;
+    }
+    else {
+      if (rttLogTime[i] < earliestRTTtimestamp) { 
+        earliestRTTtimestamp = rttLogTime[i];
+	earliestRTT = rttCircularQ[i];
+      }
+    }
+
+  }
+
+  if (earliestRTT.GetInteger() > 10) {
+    if ((rtt - earliestRTT).GetInteger() > (10*TIMESTAMPING_ERROR_EPSILON) ) { // 1 ms
+      congestionEncounteredRecently = true;
+      // std::cout << "Congestion encountered: RTT = " << rtt.GetInteger() << " ns,  incRTT = " << (rtt - earliestRTT).GetInteger() << " ns" << std::endl;
+    }
+    else {
+      congestionEncounteredRecently = false;
+    }
+  }
+
+  recentRtt = rtt;
+}
+
+
 /**
  * \brief Try to increase the cWnd following the NewReno specification
  *
@@ -214,6 +326,11 @@ void
 TcpNewReno::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
 {
   NS_LOG_FUNCTION (this << tcb << segmentsAcked);
+  
+//   uint32_t prevWindow = tcb->m_cWnd;
+  uint32_t newWindow;
+  double taxRateAdjusted=1;
+  Time now;
 
   if (tcb->m_cWnd < tcb->m_ssThresh)
     {
@@ -233,6 +350,49 @@ TcpNewReno::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
    * // Incorrect assert, I am sorry
    * NS_ASSERT (segmentsAcked == 0);
    */
+
+  /* Update window to implement Fairness Tax */
+  // First check if congestion encountered recently
+  if ((Simulator::Now() - rttLogTime[qIndex]).GetInteger() > congestionTimescale) {
+    congestionEncounteredRecently = false;
+  }
+            /* OBSOLETE !!  If tax should be applied to ALL flow, not just 
+             * bottlenecked ones, uncomment the following: OBSOLETE!!
+             *
+             * congestionEncounteredRecently = true;
+             */
+  // congestionEncounteredRecently = true;
+
+  // To turn OFF FAIRNESS TAX (default to NewReno), uncomment the following: 
+  congestionEncounteredRecently = false;
+
+  // PROP_RATE_RTT:
+  taxRateAdjusted = tcb->m_cWnd*8*0.075/(recentRtt.GetSeconds()*recentRtt.GetSeconds()*50000000);
+
+  // PROP_RATE^2_RTT:
+  // taxRateAdjusted = (tcb->m_cWnd)*(tcb->m_cWnd)*8*12.5/(recentRtt.GetSeconds()*recentRtt.GetSeconds()*recentRtt.GetSeconds()*50000000*50000000);
+
+  
+  if (congestionEncounteredRecently == true) {
+    newWindow = tcb->m_cWnd;
+
+    // Option 2 -- tax the final new window:
+    tcb->m_cWnd = newWindow*(1 - taxRate*taxRateAdjusted);
+
+    // std::cout << "FAIRNESS TAX: newWindow " << newWindow << " reduced to: " << tcb->m_cWnd << std::endl;
+
+    now = Simulator::Now ();
+
+    congCount++;
+    if (congCount % 100 == 0) {
+      // std::cout << "time: " << now.GetSeconds() << " congCount: " << congCount << " congNotCount: " << congNotCount << " ratio: " << (congNotCount*1.0/congCount) << " lastAckedSeq: " << tcb->m_lastAckedSeq << " tax: " << (taxRate*taxRateAdjusted) << std::endl;
+    }
+  }
+  else {
+    congNotCount++;
+  }
+
+  
 }
 
 std::string
