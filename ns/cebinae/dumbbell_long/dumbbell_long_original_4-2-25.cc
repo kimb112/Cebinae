@@ -31,7 +31,7 @@ std::vector<std::deque<std::string>> sourceidtag2cwndlog {};
 // MakeBoundCallBack arg should come first
 // static void
 // CwndChange (int sourceidtag, uint32_t old_cwnd, uint32_t new_cwnd)
-// { 
+// {
 //   std::string sample = std::to_string(Simulator::Now ().GetNanoSeconds ())+","+std::to_string(new_cwnd);
 //   sourceidtag2cwndlog[sourceidtag].push_back(sample);
 // }
@@ -608,7 +608,7 @@ main (int argc, char *argv[])
   RngSeedManager::SetSeed (std::time(0));
   RngSeedManager::SetRun (run);
 
-  // Create a random variable 
+  // Create a random variable
     // Ptr<RandomVariableStream> random = CreateObject<RandomVariableStream>();
     // random->SetAttribute("Min", DoubleValue(0.0)); // Set minimum value
     // random->SetAttribute("Max", DoubleValue(0.2)); // Set maximum value
@@ -641,17 +641,11 @@ std::cout << "app_seconds_start2: " << app_seconds_start2 << " flowThreeRandomSt
   router.Create (2);
   leftleaf.Create (num_leaf);
   rightleaf.Create (num_leaf);
-  NodeContainer udp_routers;
-  udp_routers.Create (2);
-  NodeContainer udp_senders;
-  NodeContainer udp_receivers;
-  udp_senders.Create (3);
-  udp_receivers.Create (3);
 
-  // PointToPointHelper p2p_bottleneck;
-  // p2p_bottleneck.SetDeviceAttribute ("DataRate", StringValue (bottleneck_bw));
-  // p2p_bottleneck.SetDeviceAttribute ("Mtu", UintegerValue(1500));   
-  // p2p_bottleneck.SetChannelAttribute ("Delay", StringValue (bottleneck_delay));
+  PointToPointHelper p2p_bottleneck;
+  p2p_bottleneck.SetDeviceAttribute ("DataRate", StringValue (bottleneck_bw));
+  p2p_bottleneck.SetDeviceAttribute ("Mtu", UintegerValue(1500));   
+  p2p_bottleneck.SetChannelAttribute ("Delay", StringValue (bottleneck_delay));
   PointToPointHelper p2p_leaf0;
   p2p_leaf0.SetDeviceAttribute ("DataRate", StringValue (leaf_bw0));
   p2p_leaf0.SetDeviceAttribute ("Mtu", UintegerValue(1500));  
@@ -687,38 +681,10 @@ std::cout << "app_seconds_start2: " << app_seconds_start2 << " flowThreeRandomSt
   PointToPointHelper p2p_leaf8;
   p2p_leaf8.SetDeviceAttribute ("DataRate", StringValue (leaf_bw8));
   p2p_leaf8.SetDeviceAttribute ("Mtu", UintegerValue(1500));   
-  p2p_leaf8.SetChannelAttribute ("Delay", StringValue (leaf_delay8));
-  
-  PointToPointHelper p2p_R1R3;
-  p2p_R1R3.SetDeviceAttribute ("DataRate", StringValue (bottleneck_bw));
-  p2p_R1R3.SetDeviceAttribute ("Mtu", UintegerValue(1500));   
-  p2p_R1R3.SetChannelAttribute ("Delay", StringValue (bottleneck_delay));
-  PointToPointHelper p2p_R3R4;
-  p2p_R3R4.SetDeviceAttribute ("DataRate", StringValue (bottleneck_bw));
-  p2p_R3R4.SetDeviceAttribute ("Mtu", UintegerValue(1500));   
-  p2p_R3R4.SetChannelAttribute ("Delay", StringValue (bottleneck_delay));
-  PointToPointHelper p2p_R4R2;
-  p2p_R4R2.SetDeviceAttribute ("DataRate", StringValue (bottleneck_bw));
-  p2p_R4R2.SetDeviceAttribute ("Mtu", UintegerValue(1500));   
-  p2p_R4R2.SetChannelAttribute ("Delay", StringValue (bottleneck_delay));
-
-  // udp node-to-router connections
-  PointToPointHelper p2p_N11N12;
-  p2p_N11N12.SetDeviceAttribute ("DataRate", StringValue ("100Mbps"));
-  p2p_N11N12.SetDeviceAttribute ("Mtu", UintegerValue(1500));   
-  p2p_N11N12.SetChannelAttribute ("Delay", StringValue ("2ms"));
-  PointToPointHelper p2p_N13N14;
-  p2p_N13N14.SetDeviceAttribute ("DataRate", StringValue ("100Mbps"));
-  p2p_N13N14.SetDeviceAttribute ("Mtu", UintegerValue(1500));   
-  p2p_N13N14.SetChannelAttribute ("Delay", StringValue ("2ms"));
-  PointToPointHelper p2p_N15N16;
-  p2p_N15N16.SetDeviceAttribute ("DataRate", StringValue ("100Mbps"));
-  p2p_N15N16.SetDeviceAttribute ("Mtu", UintegerValue(1500));   
-  p2p_N15N16.SetChannelAttribute ("Delay", StringValue ("2ms"));
-
+  p2p_leaf8.SetChannelAttribute ("Delay", StringValue (leaf_delay8));        
 
   // Default NS-3 DropTailQueue size for the NetDevice/NIC is 100p, make them configurable anyway (e.g., 1p where FQ has more predictable perf)
-  // p2p_bottleneck.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue (switch_netdev_size));
+  p2p_bottleneck.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue (switch_netdev_size));
   p2p_leaf0.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue (server_netdev_size));
   p2p_leaf1.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue (server_netdev_size));
   p2p_leaf2.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue (server_netdev_size));
@@ -727,37 +693,15 @@ std::cout << "app_seconds_start2: " << app_seconds_start2 << " flowThreeRandomSt
   p2p_leaf5.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue (server_netdev_size));
   p2p_leaf6.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue (server_netdev_size));
   p2p_leaf7.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue (server_netdev_size));
-  p2p_leaf8.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue (server_netdev_size)); 
-  
-  p2p_R1R3.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue (switch_netdev_size));                
-  p2p_R3R4.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue (switch_netdev_size)); 
-  p2p_R4R2.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue (switch_netdev_size)); 
-  p2p_N11N12.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue (server_netdev_size));                
-  p2p_N13N14.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue (server_netdev_size));                
-  p2p_N15N16.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue (server_netdev_size));                
+  p2p_leaf8.SetQueue ("ns3::DropTailQueue", "MaxSize", StringValue (server_netdev_size));                
 
   NetDeviceContainer leftleaf_devices;
   NetDeviceContainer rightleaf_devices;
-  NetDeviceContainer router_devicesR1R3;
-  NetDeviceContainer router_devicesR3R4;
-  NetDeviceContainer router_devicesR4R2;
+  NetDeviceContainer router_devices;
   NetDeviceContainer leftrouter_devices;
   NetDeviceContainer rightrouter_devices;
 
-  router_devicesR1R3 = p2p_R1R3.Install(router.Get (0), udp_routers.Get (0)); 
-  router_devicesR3R4 = p2p_R3R4.Install(udp_routers.Get (0), udp_routers.Get (1));
-  router_devicesR4R2 = p2p_R4R2.Install(udp_routers.Get (1), router.Get (1));
-
-  // connect udp devices
-  NetDeviceContainer N11_edge = p2p_N11N12.Install(udp_senders.Get(0), router.Get(0)); // change so that these go through bottleneck
-  NetDeviceContainer N12_edge = p2p_N11N12.Install(udp_routers.Get(0), udp_receivers.Get(0));
-
-  NetDeviceContainer N13_edge = p2p_N13N14.Install(udp_senders.Get(1), udp_routers.Get(0));
-  NetDeviceContainer N14_edge = p2p_N13N14.Install(udp_routers.Get(1), udp_receivers.Get(1));
-
-  NetDeviceContainer N15_edge = p2p_N15N16.Install(udp_senders.Get(2), udp_routers.Get(1));
-  NetDeviceContainer N16_edge = p2p_N15N16.Install(router.Get(1), udp_receivers.Get(2)); 
-
+  router_devices = p2p_bottleneck.Install(router);
 
   for (uint32_t i = 0; i < num_leaf; ++i) {
     NetDeviceContainer cl;
@@ -814,7 +758,6 @@ std::cout << "app_seconds_start2: " << app_seconds_start2 << " flowThreeRandomSt
     rightleaf_devices.Add (cr.Get (1));    
   }
 
-
   NS_LOG_DEBUG("================== InternetStackHelper ==================");
 
   InternetStackHelper stack;
@@ -826,14 +769,6 @@ std::cout << "app_seconds_start2: " << app_seconds_start2 << " flowThreeRandomSt
   }
   stack.Install(router.Get(0));
   stack.Install(router.Get(1));
-  stack.Install(udp_routers.Get(0));
-  stack.Install(udp_routers.Get(1));
-  stack.Install(udp_senders.Get(0));
-  stack.Install(udp_senders.Get(1));
-  stack.Install(udp_senders.Get(2));
-  stack.Install(udp_receivers.Get(0));
-  stack.Install(udp_receivers.Get(1));
-  stack.Install(udp_receivers.Get(2));
 
   NS_LOG_DEBUG("================== Install TCP transport ==================");
   // 2 MB (large enough) TCP buffers to prevent the applications from bottlenecking the exp
@@ -931,11 +866,6 @@ std::cout << "app_seconds_start2: " << app_seconds_start2 << " flowThreeRandomSt
       protor->SetAttribute ("SocketType", TypeIdValue (TypeId::LookupByName(transport_prot8)));        
     }                                    
   }
-
-    
-
-
-
   // if (transport_prot.compare ("ns3::TcpWestwoodPlus") == 0)
   //   { 
   //     // TcpWestwoodPlus is not an actual TypeId name; we need TcpWestwood here
@@ -957,7 +887,7 @@ std::cout << "app_seconds_start2: " << app_seconds_start2 << " flowThreeRandomSt
   // on a device.
 
   // We keep the tch default ns3::FqCoDelQueueDisc (for point-to-point) untouched for sources and sinks.
-  // Such DRR fair queueing (https://www.nsnam.org/docs/models/html/fq-codel.html) is useful upon multiple apps on a single sender node. 
+  // Such DRR fair queueing (https://www.nsnam.org/docs/models/html/fq-codel.html) is useful upon multiple apps on a single sender node.
 
   // NetDevice switch0 [only tch to change] ---> switch1
   TrafficControlHelper tch_switch;
@@ -965,12 +895,9 @@ std::cout << "app_seconds_start2: " << app_seconds_start2 << " flowThreeRandomSt
   if (queuedisc_type.compare("FifoQueueDisc") == 0) {
     tch_switch.SetRootQueueDisc ("ns3::FifoQueueDisc", "MaxSize", StringValue (switch_total_bufsize));
     tch_switch.SetQueueLimits ("ns3::DynamicQueueLimits", "HoldTime", StringValue ("1000ms"));
-    qdiscs = tch_switch.Install(router_devicesR1R3.Get(0));
+    qdiscs = tch_switch.Install(router_devices.Get(0));
     Ptr<QueueDisc> q = qdiscs.Get (0);
     oss << "Configured FifoQueueDisc\n";
-    tch_switch.Install(router_devicesR3R4);
-    tch_switch.Install(router_devicesR4R2);
-    std::cout << "fifo" << std::endl;
   } else if (queuedisc_type.compare("CebinaeQueueDisc") == 0) {
     Config::SetDefault ("ns3::CebinaeQueueDisc::debug", BooleanValue (enable_debug));
     Config::SetDefault ("ns3::CebinaeQueueDisc::dT", TimeValue (dt));
@@ -982,10 +909,10 @@ std::cout << "app_seconds_start2: " << app_seconds_start2 << " flowThreeRandomSt
     Config::SetDefault ("ns3::CebinaeQueueDisc::delta_flow", DoubleValue (delta_flow));
     Config::SetDefault ("ns3::CebinaeQueueDisc::pool", BooleanValue (pool));
     Config::SetDefault ("ns3::CebinaeQueueDisc::DataRate", StringValue (bottleneck_bw));
-    std::cout << "cebinae" << std::endl;
+
     tch_switch.SetRootQueueDisc ("ns3::CebinaeQueueDisc", "MaxSize", StringValue (switch_total_bufsize));
 
-    qdiscs = tch_switch.Install(router_devicesR1R3.Get(0));
+    qdiscs = tch_switch.Install(router_devices.Get(0));
     Ptr<QueueDisc> q = qdiscs.Get (0);
     oss << "--- Configured CebinaeQueueDisc ---\n"
         << "dt: " << dt << "\n"
@@ -997,12 +924,10 @@ std::cout << "app_seconds_start2: " << app_seconds_start2 << " flowThreeRandomSt
         << "delta_flow: " << delta_flow << "\n"
         << "------\n";
     // DynamicCast<Ptr<CebinaeQueueDisc>>(q)->Configure(Time dt, Time vdt, uint32_t p, double tau, double delta);
-    tch_switch.Install(router_devicesR3R4);
-    tch_switch.Install(router_devicesR4R2);
   } else if (queuedisc_type.compare("FqCoDelQueueDisc") == 0) {
     tch_switch.SetRootQueueDisc ("ns3::FqCoDelQueueDisc", "MaxSize", StringValue (switch_total_bufsize),
                                                           "Flows", UintegerValue (4294967295));
-    qdiscs = tch_switch.Install(router_devicesR1R3.Get(0));    
+    qdiscs = tch_switch.Install(router_devices.Get(0));    
     oss << "Configured FqCoDelQueueDisc\n";
   } else {
     oss << "Configured NULL QueueDisc (which is the default FqCoDelQueueDisc and buffer size)\n";
@@ -1025,13 +950,9 @@ std::cout << "app_seconds_start2: " << app_seconds_start2 << " flowThreeRandomSt
   Ipv4InterfaceContainer leftrouter_ifc;
   Ipv4InterfaceContainer rightleaf_ifc;
   Ipv4InterfaceContainer rightrouter_ifc;
-  Ipv4InterfaceContainer router_ifcR1R3;
-  Ipv4InterfaceContainer router_ifcR3R4;
-  Ipv4InterfaceContainer router_ifcR4R2;
+  Ipv4InterfaceContainer router_ifc;
 
-  router_ifcR1R3 = ipv4_router.Assign (router_devicesR1R3);
-  router_ifcR3R4 = ipv4_router.Assign (router_devicesR3R4);
-  router_ifcR4R2 = ipv4_router.Assign (router_devicesR4R2);
+  router_ifc = ipv4_router.Assign (router_devices);
   for (uint32_t i = 0; i < num_leaf; ++i) {
     NetDeviceContainer ndc;
     ndc.Add (leftleaf_devices.Get (i));
@@ -1051,135 +972,92 @@ std::cout << "app_seconds_start2: " << app_seconds_start2 << " flowThreeRandomSt
     ipv4_right.NewNetwork ();
   }  
 
+    //------------------------------------------------------------//
 
-  //------------------------------------------------------//
-  // assign IP addresses 
-  NS_LOG_INFO("Create IPv4 Interface");
-  Ipv4AddressHelper ipv4;
-  ipv4.SetBase("10.0.0.0", "255.255.255.0");
-  Ipv4InterfaceContainer is11 = ipv4.Assign(N11_edge);
-  ipv4.NewNetwork();
-  Ipv4InterfaceContainer ir12 = ipv4.Assign(N12_edge);
-  ipv4.NewNetwork();
-  Ipv4InterfaceContainer is13 = ipv4.Assign(N13_edge);
-  ipv4.NewNetwork();
-  Ipv4InterfaceContainer ir14 = ipv4.Assign(N14_edge);
-  ipv4.NewNetwork();
-  Ipv4InterfaceContainer is15 = ipv4.Assign(N15_edge);
-  ipv4.NewNetwork();
-  Ipv4InterfaceContainer ir16 = ipv4.Assign(N16_edge);
-  Ipv4GlobalRoutingHelper::PopulateRoutingTables();
+    uint16_t sinkPort = 8000;
+    uint32_t packetSize = 1500; // bytes
+    std::string dataRate("10240kb/s");
 
-  uint16_t sinkPort = 8000;
-  uint32_t packetSize = 1500; // bytes
-  std::string dataRate1("10000kb/s");
-  std::string dataRate2("20000kb/s");
-  std::string dataRate("10240kb/s");
+    NS_LOG_INFO("Create Node");
+    NodeContainer nodes;
+    nodes.Create(2);
+
+    PointToPointHelper pointToPointAccess1;
+    pointToPointAccess1.SetDeviceAttribute ("DataRate", StringValue ("100Mbps"));
+    pointToPointAccess1.SetChannelAttribute ("Delay", StringValue ("2ms")); // value for RTT calculations (router)
+
+    PointToPointHelper pointToPointAccess2;
+    pointToPointAccess2.SetDeviceAttribute ("DataRate", StringValue ("100Mbps"));
+    pointToPointAccess2.SetChannelAttribute ("Delay", StringValue ("2ms")); // value for RTT calculations (router)
+
+    NS_LOG_INFO("Create Device");
+    // NetDeviceContainer devices = pointToPointAccess1.Install(node0, router0);
+    NetDeviceContainer devices_left = pointToPointAccess1.Install(nodes.Get(0), router.Get(0));
+    NetDeviceContainer devices_right = pointToPointAccess2.Install(router.Get(1), nodes.Get(1));
+
+    NetDeviceContainer left_devices_container;
+    NetDeviceContainer right_devices_container;
+    NetDeviceContainer left_router_container;
+    NetDeviceContainer right_router_container;
+
+    left_devices_container.Add(devices_left.Get(0));
+    left_devices_container.Add(devices_left.Get(1));
+    right_devices_container.Add(devices_right.Get(0));
+    right_devices_container.Add(devices_right.Get(1));
+    
+    NS_LOG_INFO("Add Internet Stack");
+    InternetStackHelper internetStackHelper;
+    internetStackHelper.SetIpv4StackInstall(true);
+    internetStackHelper.Install(nodes);
+    // internetStackHelper.Install(router.Get(0));
+    // internetStackHelper.Install(router.Get(1));
+
+    NS_LOG_INFO("Create IPv4 Interface"); 
+    Ipv4AddressHelper addresses_left;
+    addresses_left.SetBase("10.0.0.0", "255.255.255.0");
+    Ipv4InterfaceContainer interfaces_left = addresses_left.Assign(left_devices_container);
+
+    Ipv4AddressHelper addresses_right;
+    addresses_right.SetBase("20.0.0.0", "255.255.255.0");
+    Ipv4InterfaceContainer interfaces_right = addresses_right.Assign(right_devices_container);
+
+    Ptr<Node> clientNode = nodes.Get(0);
+    Ipv4Address serverIp = interfaces_right.GetAddress(1);
+    Ptr<Node> serverNode = nodes.Get(1);
+
+    // server
+    Address sinkLocalAddress(InetSocketAddress(serverIp, sinkPort));
+
+    PacketSinkHelper sinkHelper("ns3::UdpSocketFactory", sinkLocalAddress);
+    ApplicationContainer sinkApp = sinkHelper.Install(serverNode);
+    sinkApp.Start(Seconds(app_seconds_start0));
+    sinkApp.Stop(Seconds(app_seconds_end0));
+    // fd.EnablePcap("fd2fd-onoff-server", serverDevice);
+
+
+ // Use ExponentialRandomVariable for onTime and offTime
+  Ptr<ExponentialRandomVariable> onTimeRandom = CreateObject<ExponentialRandomVariable>();
+  onTimeRandom->SetAttribute("Mean", DoubleValue(0.06)); // Set the mean value for onTime **** 5 * 0.0012 (5 * time to send one packet)
+  onTimeRandom->SetAttribute("Bound", DoubleValue(0.6)); // Set the bound value for onTime **** greater than highest rtt value
   
-  Ptr<Node> clientN11 = udp_senders.Get(0); 
-  Ipv4Address serverIpN12 = ir12.GetAddress(1);
-  Ptr<Node> serverN12 = udp_receivers.Get(0);
+  Ptr<ExponentialRandomVariable> offTimeRandom = CreateObject<ExponentialRandomVariable>();
+  offTimeRandom->SetAttribute("Mean", DoubleValue(0.06)); // Set the mean value for offTime
+  offTimeRandom->SetAttribute("Bound", DoubleValue(0.6)); // Set the bound value for onTime
 
-  // server
-  Address sinkLocalAddressN11N12(InetSocketAddress(serverIpN12, sinkPort));
+  AddressValue serverAddress(InetSocketAddress(serverIp, sinkPort));
+  OnOffHelper onoff("ns3::UdpSocketFactory", Address());
+  onoff.SetAttribute("Remote", serverAddress);
+  onoff.SetAttribute("OnTime", PointerValue(onTimeRandom));
+  onoff.SetAttribute("OffTime", PointerValue(offTimeRandom));
+  onoff.SetAttribute("DataRate", DataRateValue(dataRate));
+  onoff.SetAttribute("PacketSize", UintegerValue(packetSize));
+  ApplicationContainer clientApps = onoff.Install(clientNode);
+  clientApps.Start(Seconds(app_seconds_start0));
+  clientApps.Stop(Seconds(app_seconds_end0));
+  // fd.EnablePcap("fd2fd-onoff-client", clientDevice);
+  // pointToPointAccess1.EnablePcapAll("ptp", false);
 
-  PacketSinkHelper sinkHelperN11N12("ns3::UdpSocketFactory", sinkLocalAddressN11N12);
-  ApplicationContainer sinkAppN11N12 = sinkHelperN11N12.Install(serverN12);
-  sinkAppN11N12.Start(Seconds(0.0));
-  sinkAppN11N12.Stop(Seconds(10.0));
-  // fd.EnablePcap("fd2fd-onoff-server", serverDevice);
-
-
-// Use ExponentialRandomVariable for onTime and offTime
-Ptr<ExponentialRandomVariable> onTimeRandomN11N12 = CreateObject<ExponentialRandomVariable>();
-onTimeRandomN11N12->SetAttribute("Mean", DoubleValue(0.06)); // Set the mean value for onTime **** 5 * 0.0012 (5 * time to send one packet)
-onTimeRandomN11N12->SetAttribute("Bound", DoubleValue(0.6)); // Set the bound value for onTime **** greater than highest rtt value
-
-Ptr<ExponentialRandomVariable> offTimeRandomN11N12 = CreateObject<ExponentialRandomVariable>();
-offTimeRandomN11N12->SetAttribute("Mean", DoubleValue(0.06)); // Set the mean value for offTime
-offTimeRandomN11N12->SetAttribute("Bound", DoubleValue(0.6)); // Set the bound value for onTime
-
-AddressValue serverAddressN11N12(InetSocketAddress(serverIpN12, sinkPort));
-OnOffHelper onoffN11N12("ns3::UdpSocketFactory", Address());
-onoffN11N12.SetAttribute("Remote", serverAddressN11N12);
-onoffN11N12.SetAttribute("OnTime", PointerValue(onTimeRandomN11N12));
-onoffN11N12.SetAttribute("OffTime", PointerValue(offTimeRandomN11N12));
-onoffN11N12.SetAttribute("DataRate", DataRateValue(dataRate1));
-onoffN11N12.SetAttribute("PacketSize", UintegerValue(packetSize));
-ApplicationContainer clientAppsN11N12 = onoffN11N12.Install(clientN11);
-clientAppsN11N12.Start(Seconds(0.0));
-clientAppsN11N12.Stop(Seconds(10.0));
-
-// ---------------------------------n13n14--------------------------------//
-sinkPort = 8000;
-Ptr<Node> clientN13 = udp_senders.Get(1); 
-Ipv4Address serverIpN14 = ir14.GetAddress(1);
-Ptr<Node> serverN14 = udp_receivers.Get(1);
-
-// server
-Address sinkLocalAddressN13N14(InetSocketAddress(serverIpN14, sinkPort));
-
-PacketSinkHelper sinkHelperN13N14("ns3::UdpSocketFactory", sinkLocalAddressN13N14);
-ApplicationContainer sinkAppN13N14 = sinkHelperN13N14.Install(serverN14);
-sinkAppN13N14.Start(Seconds(10.0));
-sinkAppN13N14.Stop(Seconds(20.0));
-
-// Use ExponentialRandomVariable for onTime and offTime
-Ptr<ExponentialRandomVariable> onTimeRandomN13N14 = CreateObject<ExponentialRandomVariable>();
-onTimeRandomN13N14->SetAttribute("Mean", DoubleValue(0.06)); // Set the mean value for onTime **** 5 * 0.0012 (5 * time to send one packet)
-onTimeRandomN13N14->SetAttribute("Bound", DoubleValue(0.6)); // Set the bound value for onTime **** greater than highest rtt value
-
-Ptr<ExponentialRandomVariable> offTimeRandomN13N14 = CreateObject<ExponentialRandomVariable>();
-offTimeRandomN13N14->SetAttribute("Mean", DoubleValue(0.06)); // Set the mean value for offTime
-offTimeRandomN13N14->SetAttribute("Bound", DoubleValue(0.6)); // Set the bound value for onTime
-
-AddressValue serverAddressN13N14(InetSocketAddress(serverIpN14, sinkPort));
-OnOffHelper onoffN13N14("ns3::UdpSocketFactory", Address());
-onoffN13N14.SetAttribute("Remote", serverAddressN13N14);
-onoffN13N14.SetAttribute("OnTime", PointerValue(onTimeRandomN13N14));
-onoffN13N14.SetAttribute("OffTime", PointerValue(offTimeRandomN13N14));
-onoffN13N14.SetAttribute("DataRate", DataRateValue(dataRate2));
-onoffN13N14.SetAttribute("PacketSize", UintegerValue(packetSize));
-ApplicationContainer clientAppsN13N14 = onoffN13N14.Install(clientN13);
-clientAppsN13N14.Start(Seconds(10.0));
-clientAppsN13N14.Stop(Seconds(20.0)); 
-
-// ---------------------------------n15n16--------------------------------//
-sinkPort = 8000;
-Ptr<Node> clientN15 = udp_senders.Get(2); 
-Ipv4Address serverIpN16 = ir16.GetAddress(1);
-Ptr<Node> serverN16 = udp_receivers.Get(2);
-
-Address sinkLocalAddressN15N16(InetSocketAddress(serverIpN16, sinkPort));
-
-PacketSinkHelper sinkHelperN15N16("ns3::UdpSocketFactory", sinkLocalAddressN15N16);
-ApplicationContainer sinkAppN15N16 = sinkHelperN15N16.Install(serverN16);
-sinkAppN15N16.Start(Seconds(20.0));
-sinkAppN15N16.Stop(Seconds(30.0));
-
-
-// Use ExponentialRandomVariable for onTime and offTime
-Ptr<ExponentialRandomVariable> onTimeRandomN15N16 = CreateObject<ExponentialRandomVariable>();
-onTimeRandomN15N16->SetAttribute("Mean", DoubleValue(0.06)); // Set the mean value for onTime **** 5 * 0.0012 (5 * time to send one packet)
-onTimeRandomN15N16->SetAttribute("Bound", DoubleValue(0.6)); // Set the bound value for onTime **** greater than highest rtt value
-
-Ptr<ExponentialRandomVariable> offTimeRandomN15N16 = CreateObject<ExponentialRandomVariable>();
-offTimeRandomN15N16->SetAttribute("Mean", DoubleValue(0.06)); // Set the mean value for offTime
-offTimeRandomN15N16->SetAttribute("Bound", DoubleValue(0.6)); // Set the bound value for onTime
-
-AddressValue serverAddressN15N16(InetSocketAddress(serverIpN16, sinkPort));
-OnOffHelper onoffN15N16("ns3::UdpSocketFactory", Address());
-onoffN15N16.SetAttribute("Remote", serverAddressN15N16);
-onoffN15N16.SetAttribute("OnTime", PointerValue(onTimeRandomN15N16));
-onoffN15N16.SetAttribute("OffTime", PointerValue(offTimeRandomN15N16));
-onoffN15N16.SetAttribute("DataRate", DataRateValue(dataRate1));
-onoffN15N16.SetAttribute("PacketSize", UintegerValue(packetSize));
-ApplicationContainer clientAppsN15N16 = onoffN15N16.Install(clientN15);
-clientAppsN15N16.Start(Seconds(20.0));
-clientAppsN15N16.Stop(Seconds(30.0));
-
-
-NS_LOG_DEBUG("================== Generate application ==================");
+  NS_LOG_DEBUG("================== Generate application ==================");
 
   // We want to look at changes in the ns-3 TCP congestion window:
   // 1. Create a socket
@@ -1312,7 +1190,7 @@ NS_LOG_DEBUG("================== Generate application ==================");
 
   NS_LOG_DEBUG("================== Tracing ==================");
   // Tracing PointToPointNetDevice
-  router_devicesR1R3.Get(0)->TraceConnectWithoutContext("PhyTxEnd", MakeCallback (&PhyTxEndCb));
+  router_devices.Get(0)->TraceConnectWithoutContext("PhyTxEnd", MakeCallback (&PhyTxEndCb));
   // The other NetDevice only transmits ACK packets
   // router_devices.Get(1)->TraceConnectWithoutContext("PhyTxEnd", MakeCallback (&PhyTxEndCb));
   mysourceidtag2bytecount.resize(num_leaf, 0);
@@ -1346,12 +1224,12 @@ NS_LOG_DEBUG("================== Generate application ==================");
       AsciiTraceHelper ascii;
     if (queuedisc_type.compare("FifoQueueDisc") == 0) {
       // p2p_bottleneck.EnableAsciiAll(ascii.CreateFileStream("FIFO.tr"));
-      p2p_R1R3.EnablePcapAll ("FIFO", false);
+      p2p_bottleneck.EnablePcapAll ("FIFO", false);
       // std::cout << "pcap file fifo" << std::endl;
     }
     if (queuedisc_type.compare("CebinaeQueueDisc") == 0) {
       // p2p_bottleneck.EnableAsciiAll(ascii.CreateFileStream("Cebinae.tr"));
-      p2p_R1R3.EnablePcapAll ("Cebinae", false);
+      p2p_bottleneck.EnablePcapAll ("Cebinae", false);
     }
     
     
@@ -1400,7 +1278,7 @@ NS_LOG_DEBUG("================== Generate application ==================");
   }
   oss << "--- router_ifc ---\n";
   for (uint32_t i = 0; i < 2; i++) {
-    oss << i << " " << router_ifcR1R3.GetAddress(i) << "\n";
+    oss << i << " " << router_ifc.GetAddress(i) << "\n";
   }  
 
   // Calculate overall JFI

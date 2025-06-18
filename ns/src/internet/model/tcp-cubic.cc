@@ -22,6 +22,10 @@
 
 #include "tcp-cubic.h"
 #include "ns3/log.h"
+#include "ns3/simulator.h"
+#include <iostream>
+#include <fstream>
+
 
 NS_LOG_COMPONENT_DEFINE ("TcpCubic");
 
@@ -106,9 +110,23 @@ TcpCubic::TcpCubic ()
     m_lastAck (Time::Min ()),
     m_cubicDelta (Time::Min ()),
     m_currRtt (Time::Min ()),
-    m_sampleCnt (0)
+    m_sampleCnt (0),
+    congestionTimescale (100000000), /* 100 ms */
+    samplingTimescale (25000000), /* 25 ms */
+    congestionEncounteredRecently (false),
+    qIndex (0),
+    taxRate (0.01),
+    recentRtt (0),
+    congCount (0),
+    congNotCount(0) 
 {
   NS_LOG_FUNCTION (this);
+  zeroTime = Time();
+
+  for (int i = 0; i < NUMBER_OF_SUB_SAMPLES; i++) {
+    rttCircularQ[i] = zeroTime;
+    rttLogTime[i] = zeroTime;
+  }
 }
 
 TcpCubic::TcpCubic (const TcpCubic &sock)
@@ -137,9 +155,22 @@ TcpCubic::TcpCubic (const TcpCubic &sock)
     m_lastAck (sock.m_lastAck),
     m_cubicDelta (sock.m_cubicDelta),
     m_currRtt (sock.m_currRtt),
-    m_sampleCnt (sock.m_sampleCnt)
+    m_sampleCnt (sock.m_sampleCnt),
+    congestionTimescale (100000000), /* 100 ms */
+    samplingTimescale (25000000), /* 25 ms */
+    congestionEncounteredRecently (sock.congestionEncounteredRecently),
+    qIndex (sock.qIndex),
+    taxRate (0.01),
+    recentRtt (sock.recentRtt),
+    congCount (sock.congCount),
+    congNotCount(sock.congNotCount) 
 {
   NS_LOG_FUNCTION (this);
+
+  for (int i = 0; i < NUMBER_OF_SUB_SAMPLES; i++) {
+    rttCircularQ[i] = zeroTime;
+    rttLogTime[i] = zeroTime;
+  }
 }
 
 std::string
@@ -159,10 +190,19 @@ TcpCubic::HystartReset (Ptr<const TcpSocketState> tcb)
   m_sampleCnt = 0;
 }
 
+
 void
 TcpCubic::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
 {
   NS_LOG_FUNCTION (this << tcb << segmentsAcked);
+
+//   uint32_t prevWindow = tcb->m_cWnd;
+  uint32_t newWindow;
+  uint32_t originalWindow = tcb->m_cWnd;
+  double tax;
+  double totalTax;
+  // double taxRateAdjusted=1;
+  Time now;
 
   if (tcb->m_cWnd < tcb->m_ssThresh)
     {
@@ -199,6 +239,9 @@ TcpCubic::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
        */
       if (m_cWndCnt >= cnt)
         {
+          /* REPLACING THIS LINE (SETTING CONGESTION WINDOW SIZE) WITH THE FAIRNESS TAX BELOW! 
+          CONGESTION WINDOW SIZE IS NOW SET INSIDE EACH OPTION
+          */
           tcb->m_cWnd += tcb->m_segmentSize;
           m_cWndCnt -= cnt;
           NS_LOG_INFO ("In CongAvoid, updated to cwnd " << tcb->m_cWnd);
@@ -209,6 +252,164 @@ TcpCubic::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
                        "Until now " << m_cWndCnt << " cnd " << cnt);
         }
     }
+
+                 /* Update window to implement Fairness Tax */
+          // First check if congestion encountered recently
+          // if ((Simulator::Now() - rttLogTime[qIndex]).GetInteger() > congestionTimescale) {
+          //   congestionEncounteredRecently = false;
+          // }
+
+          congestionEncounteredRecently = false;
+          
+          if (congestionEncounteredRecently == true) {
+            newWindow = tcb->m_cWnd;            
+
+            // Option 1: Similar to Cebinae
+            tax = 0.02;
+            totalTax = tax * newWindow;
+            originalWindow = originalWindow;
+
+            tcb->m_cWnd = newWindow - totalTax;
+
+            // Option 2A
+            // tax = 1000.0 / recentRtt.GetMicroSeconds();
+            // totalTax = tax * newWindow;
+            // originalWindow = originalWindow;
+
+            // if (totalTax / newWindow > 0.05) {
+            //   totalTax = 0.05 * newWindow;
+            // }
+
+            // tcb->m_cWnd = newWindow - totalTax;
+
+            // Option 2B
+            // tax = 10000.0 * newWindow / (recentRtt.GetMicroSeconds() * recentRtt.GetMicroSeconds());
+            // totalTax = tax * newWindow;
+
+            // if (totalTax / newWindow > 0.05) {
+            //   totalTax = 0.05 * newWindow;
+            // }
+
+            // tcb->m_cWnd = newWindow - totalTax;
+            // originalWindow = originalWindow;
+
+            // Option 3
+            // tax = 4.0;
+            // totalTax = tax * (newWindow - originalWindow);
+
+            // if (totalTax / newWindow > 0.05) {
+            //   totalTax = 0.05 * newWindow;
+            // }
+
+            // tcb->m_cWnd = newWindow - totalTax;
+
+
+            // Option 4
+            // tax = 5000.0 / recentRtt.GetMicroSeconds();
+            // totalTax = tax * (newWindow-originalWindow);
+
+            // if (totalTax / newWindow > 0.05) {
+            //   totalTax = 0.05 * newWindow;
+            // }
+
+            // tcb->m_cWnd = newWindow - totalTax;
+
+
+            // Option 5B
+            // tax =  10000.0 * (newWindow-originalWindow) / (recentRtt.GetMicroSeconds() * recentRtt.GetMicroSeconds());
+            // totalTax = tax * (newWindow - originalWindow);
+            
+            // if (totalTax / newWindow > 0.05) {
+            //   totalTax = 0.05 * newWindow;
+            // }
+
+            // tcb->m_cWnd = newWindow - totalTax;
+
+            
+            // Option 5C
+            // tax =  50000.0 * (newWindow-originalWindow) / (recentRtt.GetMicroSeconds() * recentRtt.GetMicroSeconds());
+            // totalTax = tax * (newWindow - originalWindow) * (newWindow - originalWindow);
+            
+            // if (totalTax / newWindow > 0.05) {
+            //   totalTax = 0.05 * newWindow;
+            // }
+
+            // tcb->m_cWnd = newWindow - totalTax;
+
+            
+            // Option 6
+            // tax = 0.023;
+            // totalTax = tax * newWindow;
+            
+            // if (newWindow > originalWindow) {
+            //   tcb->m_cWnd = newWindow - totalTax;
+            // }
+
+
+            // Option 7
+            // tax = 1000.0 / recentRtt.GetMicroSeconds();
+            // totalTax = tax * newWindow;
+
+            // if (totalTax / newWindow > 0.05) {
+            //   totalTax = 0.05 * newWindow;
+            // }
+
+            // if (newWindow > originalWindow) {
+            //   tcb->m_cWnd = newWindow - totalTax;
+            // }
+
+
+            // Option 8
+            // tax = 1.0;
+            // totalTax = tax * (newWindow - originalWindow);
+
+            // if (totalTax / newWindow > 0.05) {
+            //   totalTax = 0.05 * newWindow;
+            // }
+            
+            // if (newWindow > originalWindow) {
+            //   tcb->m_cWnd = newWindow - totalTax;
+            // }
+
+            
+            // Option 9
+            // tax = 30000.0 / recentRtt.GetMicroSeconds();
+            // totalTax = tax * (newWindow-originalWindow);
+
+            // if (totalTax / newWindow > 0.05) {
+            //   totalTax = 0.05 * newWindow;
+            // }
+
+            // if (newWindow > originalWindow) {
+            //   tcb->m_cWnd = newWindow - totalTax;
+            // }
+
+
+            // Option 10B
+            // tax =  10000000.0 * (newWindow-originalWindow) / (recentRtt.GetMicroSeconds() * recentRtt.GetMicroSeconds());
+            // totalTax = tax * (newWindow - originalWindow);
+            
+            // if (totalTax / newWindow > 0.05) {
+            //   totalTax = 0.05 * newWindow;
+            // }
+
+            // if (newWindow > originalWindow) {
+            //   tcb->m_cWnd = newWindow - totalTax;
+            // }
+
+            now = Simulator::Now ();
+
+            congCount++;
+
+            if (congCount % 100 == 0) {
+              // std::cout << "time: " << now.GetSeconds()  << std::endl;
+              // std::cout << "time: " << now.GetSeconds() << " congCount: " << congCount << " congNotCount: " << congNotCount << " ratio: " << (congNotCount*1.0/congCount) << " lastAckedSeq: " << tcb->m_lastAckedSeq << " tax: " << (taxRate*taxRateAdjusted) << std::endl;
+            }
+          }
+          else {
+            congNotCount++;
+          }
+  
 }
 
 uint32_t
@@ -302,6 +503,11 @@ TcpCubic::PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked,
 {
   NS_LOG_FUNCTION (this << tcb << segmentsAcked << rtt);
 
+  Time now;
+  Time earliestRTTtimestamp;
+  Time earliestRTT;
+
+
   /* Discard delay samples right after fast recovery */
   if (m_epochStart != Time::Min ()
       && (Simulator::Now () - m_epochStart) < m_cubicDelta)
@@ -322,6 +528,49 @@ TcpCubic::PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked,
     {
       HystartUpdate (tcb, rtt);
     }
+
+  if (rtt.IsZero ())
+    {
+      return;
+    }
+
+  // Do all of the following for implementing fairness tax
+  now = Simulator::Now ();
+  // std::cout << "FAIRNESS TAX: time difference: " << (now - rttLogTime[qIndex]).GetInteger() << std::endl;
+
+  if ((now - rttLogTime[qIndex]).GetInteger() > samplingTimescale) { // in nanoseconds
+    qIndex = (qIndex+1)%NUMBER_OF_SUB_SAMPLES;
+    rttCircularQ[qIndex] = rtt;
+    rttLogTime[qIndex] = now;
+  }
+  
+  earliestRTTtimestamp = now;
+  earliestRTT = rtt;
+  for (int i = 0; i < NUMBER_OF_SUB_SAMPLES; i++) {
+    if ((now - rttLogTime[i]).GetInteger() > congestionTimescale) { // in nanoseconds
+      rttCircularQ[i] = zeroTime;
+      rttLogTime[i] = zeroTime;
+    }
+    else {
+      if (rttLogTime[i] < earliestRTTtimestamp) { 
+        earliestRTTtimestamp = rttLogTime[i];
+	earliestRTT = rttCircularQ[i];
+      }
+    }
+
+  }
+
+  if (earliestRTT.GetInteger() > 10) {
+    if ((rtt - earliestRTT).GetInteger() > (10*TIMESTAMPING_ERROR_EPSILON) ) { // 1 ms
+      congestionEncounteredRecently = true;
+      // std::cout << "Congestion encountered: RTT = " << rtt.GetInteger() << " ns,  incRTT = " << (rtt - earliestRTT).GetInteger() << " ns" << std::endl;
+    }
+    else {
+      congestionEncounteredRecently = false;
+    }
+  }
+
+  recentRtt = rtt;
 }
 
 void
@@ -424,11 +673,18 @@ void
 TcpCubic::CongestionStateSet (Ptr<TcpSocketState> tcb, const TcpSocketState::TcpCongState_t newState)
 {
   NS_LOG_FUNCTION (this << tcb << newState);
+  Time now;
 
   if (newState == TcpSocketState::CA_LOSS)
     {
       CubicReset (tcb);
       HystartReset (tcb);
+    }
+
+  if ((newState == TcpSocketState::CA_RECOVERY) || (newState == TcpSocketState::CA_LOSS))
+    {
+   	now = Simulator::Now ();
+  	std::cout << (now).GetInteger() << tcb->m_lastAckedSackedBytes << " packet lost" << std::endl;
     }
 }
 

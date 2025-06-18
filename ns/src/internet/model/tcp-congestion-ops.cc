@@ -273,7 +273,8 @@ TcpNewReno::PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked,
 
   // std::cout << "Time: " << rttLogTime[qIndex].GetInteger() << " RTT: " << rtt.GetInteger() << std::endl;
   
-  // std::cout << now.GetSeconds() << " " << rtt.GetMilliSeconds() << std::endl;
+  // std::cout << now.GetNanoSeconds() << " ns" << rtt.GetMilliSeconds() << std::endl;
+
 
 
   if ((now - rttLogTime[qIndex]).GetInteger() > samplingTimescale) { // in nanoseconds
@@ -326,10 +327,14 @@ void
 TcpNewReno::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
 {
   NS_LOG_FUNCTION (this << tcb << segmentsAcked);
+  // std::cout << "increasewindow" << std::endl;
   
 //   uint32_t prevWindow = tcb->m_cWnd;
   uint32_t newWindow;
-  double taxRateAdjusted=1;
+  uint32_t originalWindow = tcb->m_cWnd;
+  double tax;
+  double totalTax;
+  // double taxRateAdjusted=1;
   Time now;
 
   if (tcb->m_cWnd < tcb->m_ssThresh)
@@ -353,38 +358,215 @@ TcpNewReno::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
 
   /* Update window to implement Fairness Tax */
   // First check if congestion encountered recently
-  if ((Simulator::Now() - rttLogTime[qIndex]).GetInteger() > congestionTimescale) {
-    congestionEncounteredRecently = false;
-  }
+  // if ((Simulator::Now() - rttLogTime[qIndex]).GetInteger() > congestionTimescale) {
+  //   congestionEncounteredRecently = false;
+  // }
             /* OBSOLETE !!  If tax should be applied to ALL flow, not just 
              * bottlenecked ones, uncomment the following: OBSOLETE!!
              *
              * congestionEncounteredRecently = true;
              */
-  // congestionEncounteredRecently = true;
+  congestionEncounteredRecently = true;
 
   // To turn OFF FAIRNESS TAX (default to NewReno), uncomment the following: 
-  congestionEncounteredRecently = false;
+  // congestionEncounteredRecently = false; // raw *** always uncomment this when running cebinae !!!!!!!!!
 
   // PROP_RATE_RTT:
-  taxRateAdjusted = tcb->m_cWnd*8*0.075/(recentRtt.GetSeconds()*recentRtt.GetSeconds()*50000000);
+  // taxRateAdjusted = tcb->m_cWnd*8*0.001/(recentRtt.GetSeconds()*recentRtt.GetSeconds()*recentRtt.GetSeconds()*50000000); // tax 0 (cwin * constant / rtt^3)
+  // taxRateAdjusted = tcb->m_cWnd*8*0.03/(recentRtt.GetSeconds()*recentRtt.GetSeconds()*50000000); //  tax 1 (cwin * constant / rtt^2)
+  // taxRateAdjusted = tcb->m_cWnd*8*9/(recentRtt.GetSeconds()*50000000); // tax 2 (cwin * constant / rtt)
+    // taxRateAdjusted = 80/(recentRtt.GetSeconds()*50000000); // tax 3 (constant / rtt)
+    // taxRateAdjusted = 90; // similar to cebinae // tax 4 (constant)
 
   // PROP_RATE^2_RTT:
   // taxRateAdjusted = (tcb->m_cWnd)*(tcb->m_cWnd)*8*12.5/(recentRtt.GetSeconds()*recentRtt.GetSeconds()*recentRtt.GetSeconds()*50000000*50000000);
-
   
   if (congestionEncounteredRecently == true) {
     newWindow = tcb->m_cWnd;
+    // std::cout << now << std::endl;
 
-    // Option 2 -- tax the final new window:
-    tcb->m_cWnd = newWindow*(1 - taxRate*taxRateAdjusted);
+    // std::ofstream outfile;
+    // std::ofstream outfile1;
+    // outfile.open("window_data.txt", std::ios_base::app);
+    // outfile1.open("cwnd_rtt_data_12-15s.txt", std::ios_base::app);
 
-    // std::cout << "FAIRNESS TAX: newWindow " << newWindow << " reduced to: " << tcb->m_cWnd << std::endl;
+    // print cwnd before tax. **************    
+
+    // additional options
+    // Option 3 and 4
+    // tax = 1000000; // square the tax compared to option 3 -- 10^6, 7, 8
+    // totalTax = sqrt(recentRtt.GetMicroSeconds()) * recentRtt.GetMicroSeconds() / tax; // ensure that tax is high value
+    // originalWindow = originalWindow;
+
+    // tcb->m_cWnd = originalWindow + (newWindow - originalWindow) * totalTax;
+
+    // Option 1
+    // tcb->m_cWnd = newWindow - 0.011*newWindow;
+    // originalWindow = originalWindow; 
+
+
+    // Option 1: Cebinae 
+    // tax = 0.00001;
+    // totalTax = tax * newWindow;
+    // originalWindow = originalWindow;
+
+    // tcb->m_cWnd = newWindow - totalTax;
+
+    // // if (Simulator::Now ().GetNanoSeconds() > 6000000000 && Simulator::Now ().GetNanoSeconds() < 8000000000) {
+    // outfile << Simulator::Now ().GetNanoSeconds() << " " << originalWindow << " " << newWindow << " " << tcb->m_cWnd << " " << recentRtt.GetNanoSeconds() << "\n";
+    // // }
+    // // if (Simulator::Now ().GetNanoSeconds() > 12500000000 && Simulator::Now ().GetNanoSeconds() < 15000000000) {
+    //   // outfile1 << Simulator::Now ().GetNanoSeconds() << " " << originalWindow << " " << newWindow << " " << tcb->m_cWnd << " " << recentRtt.GetNanoSeconds() << "\n";
+    // // }
+
+    // outfile.close();
+    // // outfile1.close();
+
+
+    // Option 2A
+    // tax = 1000.0 / recentRtt.GetMicroSeconds();
+    // totalTax = tax * newWindow;
+    // originalWindow = originalWindow;
+
+    // if (totalTax / newWindow > 0.05) {
+    //   totalTax = 0.05 * newWindow;
+    // }
+
+    // tcb->m_cWnd = newWindow - totalTax;
+
+    // Option 2B
+    // tax = 10000.0 * newWindow / (recentRtt.GetMicroSeconds() * recentRtt.GetMicroSeconds());
+    // totalTax = tax * newWindow;
+
+    // if (totalTax / newWindow > 0.05) {
+    //   totalTax = 0.05 * newWindow;
+    // }
+
+    // tcb->m_cWnd = newWindow - totalTax;
+    // originalWindow = originalWindow;
+
+    // Option 3
+    // tax = 4.0;
+    // totalTax = tax * (newWindow - originalWindow);
+
+    // if (totalTax / newWindow > 0.05) {
+    //   totalTax = 0.05 * newWindow;
+    // }
+
+    // tcb->m_cWnd = newWindow - totalTax;
+
+
+    // Option 4
+    // tax = 5000.0 / recentRtt.GetMicroSeconds();
+    // totalTax = tax * (newWindow-originalWindow);
+
+    // if (totalTax / newWindow > 0.05) {
+    //   totalTax = 0.05 * newWindow;
+    // }
+
+    // tcb->m_cWnd = newWindow - totalTax;
+
+
+    // Option 5B
+    // tax =  10000.0 * (newWindow-originalWindow) / (recentRtt.GetMicroSeconds() * recentRtt.GetMicroSeconds());
+    // totalTax = tax * (newWindow - originalWindow);
+    
+    // if (totalTax / newWindow > 0.05) {
+    //   totalTax = 0.05 * newWindow;
+    // }
+
+    // tcb->m_cWnd = newWindow - totalTax;
+
+    
+    // Option 5C
+    // tax =  50000.0 * (newWindow-originalWindow) / (recentRtt.GetMicroSeconds() * recentRtt.GetMicroSeconds());
+    // totalTax = tax * (newWindow - originalWindow) * (newWindow - originalWindow);
+    
+    // if (totalTax / newWindow > 0.05) {
+    //   totalTax = 0.05 * newWindow;
+    // }
+
+    // tcb->m_cWnd = newWindow - totalTax;
+
+    
+    // Option 6
+    tax = 0.025;
+    totalTax = tax * newWindow;
+    
+    if (newWindow > originalWindow) {
+      tcb->m_cWnd = newWindow - totalTax;
+    }
+
+    // outfile << Simulator::Now ().GetNanoSeconds() << " " << originalWindow << " " << newWindow << " " << tcb->m_cWnd << " " << recentRtt.GetNanoSeconds() << "\n";
+
+    // if (Simulator::Now ().GetNanoSeconds() > 6000000000 && Simulator::Now ().GetNanoSeconds() < 8000000000) {
+    //   outfile << Simulator::Now ().GetNanoSeconds() << " " << originalWindow << " " << newWindow << " " << tcb->m_cWnd << " " << recentRtt.GetNanoSeconds() << "\n";
+    // }
+    // if (Simulator::Now ().GetNanoSeconds() > 12500000000 && Simulator::Now ().GetNanoSeconds() < 15000000000) {
+    //   outfile1 << Simulator::Now ().GetNanoSeconds() << " " << originalWindow << " " << newWindow << " " << tcb->m_cWnd << " " << recentRtt.GetNanoSeconds() << "\n";
+    // }
+
+    // outfile.close();
+    // outfile1.close();
+
+    // print newWindow, tcb->m_cwnd, tcp->rtt
+    // Option 7 
+    // tax = 1000.0 / recentRtt.GetMicroSeconds();
+    // totalTax = tax * newWindow;
+
+    // if (totalTax / newWindow > 0.05) {
+    //   totalTax = 0.05 * newWindow;
+    // }
+
+    // if (newWindow > originalWindow) {
+    //   tcb->m_cWnd = newWindow - totalTax;
+    // }
+
+
+    // Option 8
+    // tax = 1.0;
+    // totalTax = tax * (newWindow - originalWindow);
+
+    // if (totalTax / newWindow > 0.05) {
+    //   totalTax = 0.05 * newWindow;
+    // }
+    
+    // if (newWindow > originalWindow) {
+    //   tcb->m_cWnd = newWindow - totalTax;
+    // }
+
+    
+    // Option 9
+    // tax = 30000.0 / recentRtt.GetMicroSeconds();
+    // totalTax = tax * (newWindow-originalWindow);
+
+    // if (totalTax / newWindow > 0.05) {
+    //   totalTax = 0.05 * newWindow;
+    // }
+
+    // if (newWindow > originalWindow) {
+    //   tcb->m_cWnd = newWindow - totalTax;
+    // }
+
+
+    // Option 10B
+    // tax =  10000000.0 * (newWindow-originalWindow) / (recentRtt.GetMicroSeconds() * recentRtt.GetMicroSeconds());
+    // totalTax = tax * (newWindow - originalWindow);
+    
+    // if (totalTax / newWindow > 0.05) {
+    //   totalTax = 0.05 * newWindow;
+    // }
+
+    // if (newWindow > originalWindow) {
+    //   tcb->m_cWnd = newWindow - totalTax;
+    // }
 
     now = Simulator::Now ();
 
     congCount++;
+
     if (congCount % 100 == 0) {
+      // std::cout << "time: " << now.GetSeconds()  << std::endl;
       // std::cout << "time: " << now.GetSeconds() << " congCount: " << congCount << " congNotCount: " << congNotCount << " ratio: " << (congNotCount*1.0/congCount) << " lastAckedSeq: " << tcb->m_lastAckedSeq << " tax: " << (taxRate*taxRateAdjusted) << std::endl;
     }
   }
@@ -392,7 +574,6 @@ TcpNewReno::IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked)
     congNotCount++;
   }
 
-  
 }
 
 std::string

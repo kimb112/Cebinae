@@ -43,7 +43,7 @@ namespace ns3 {
  * Following the Linux implementation, we included the Hybrid Slow Start,
  * that effectively prevents the overshooting of slow start
  * while maintaining a full utilization of the network. This new type of slow
- * start can be disabled through the \Attribute{HyStart} attribute.
+ * start can be disabled through the HyStart attribute.
  *
  * CUBIC TCP is implemented and used by default in Linux kernels 2.6.19
  * and above; this version follows the implementation in Linux 3.14, which
@@ -135,7 +135,39 @@ private:
   Time         m_currRtt;         //!<  Current Rtt
   uint32_t     m_sampleCnt;       //!<  Count of samples for HyStart
 
+//   /** Private variables for implementing fairness tax */
+// #define NUMBER_OF_SUB_SAMPLES 4
+// #define TIMESTAMPING_ERROR_EPSILON 100000 // 100 microsecond
+//   uint32_t congestionTimescale; // 100 ms
+//   uint32_t samplingTimescale; // congestionTimescale/NUMBER_OF_SUB_SAMPLES
+//   bool congestionEncounteredRecently;
+//   Time rttCircularQ[NUMBER_OF_SUB_SAMPLES];
+//   Time rttLogTime[NUMBER_OF_SUB_SAMPLES];
+//   Time zeroTime; /* Representing a zero value of time, to avoid creating the object again and again */
+//   uint32_t qIndex;
+//   double taxRate; // 10 (percent)
+//   Time recentRtt;
+//   uint32_t congCount;
+//   uint32_t congNotCount;
+
+  
 private:
+
+  /** Private variables for implementing fairness tax */
+#define NUMBER_OF_SUB_SAMPLES 4
+#define TIMESTAMPING_ERROR_EPSILON 100000 // 100 microsecond
+  uint32_t congestionTimescale; // 100 ms
+  uint32_t samplingTimescale; // congestionTimescale/NUMBER_OF_SUB_SAMPLES
+  bool congestionEncounteredRecently;
+  Time rttCircularQ[NUMBER_OF_SUB_SAMPLES];
+  Time rttLogTime[NUMBER_OF_SUB_SAMPLES];
+  Time zeroTime; /* Representing a zero value of time, to avoid creating the object again and again */
+  uint32_t qIndex;
+  double taxRate; // 10 (percent)
+  Time recentRtt;
+  uint32_t congCount;
+  uint32_t congNotCount;
+
   /**
    * \brief Reset HyStart parameters
    * \param tcb Transmission Control Block of the connection
