@@ -1,9 +1,9 @@
 #!/bin/bash
 
-fifo_method="Cubic" # CCA
+fifo_method="NewReno" # CCA
 fifo_tax=0.025
 cebinae_tax=0.1
-tax_id="5-27-25-option-6-cubic" # folder name
+tax_id="newreno-option-6" # folder name
 
 # remove folders with same names to avoid duplicates
 
